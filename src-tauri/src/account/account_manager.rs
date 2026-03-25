@@ -192,14 +192,18 @@ impl AccountManager {
         account.token_expired_at = Some(token_result.expired_at);
         account.password = password;
 
+        println!("[AccountManager] 添加新账号到列表: id={}, user_id={}, email={}", account.id, account.user_id, account.email);
         self.store.accounts.push(account.clone());
+        println!("[AccountManager] 当前账号列表长度: {}", self.store.accounts.len());
 
         // 如果是第一个账号，设为活跃账号
         if self.store.active_account_id.is_none() {
             self.store.active_account_id = Some(account.id.clone());
+            println!("[AccountManager] 设置第一个账号为活跃账号: {}", account.id);
         }
 
         self.save_store()?;
+        println!("[AccountManager] 账号保存成功: id={}", account.id);
         Ok(account)
     }
 
@@ -996,9 +1000,16 @@ impl AccountManager {
     /// 导出账号数据
     pub fn export_accounts(&self) -> Result<String> {
         let export_data: Vec<serde_json::Value> = self.store.accounts.iter().map(|acc| {
+            // 检查邮箱是否脱敏（包含*号），如果是则不导出邮箱
+            let email = if acc.email.contains('*') {
+                String::new()  // 脱敏邮箱导出为空字符串
+            } else {
+                acc.email.clone()
+            };
+            
             serde_json::json!({
                 "name": acc.name,
-                "email": acc.email,
+                "email": email,
                 "cookies": acc.cookies,
                 "user_id": acc.user_id,
                 "tenant_id": acc.tenant_id,

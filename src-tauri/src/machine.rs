@@ -160,10 +160,11 @@ pub fn kill_trae() -> Result<()> {
         .output();
 
     // 等待一小段时间
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    std::thread::sleep(std::time::Duration::from_millis(1000));
 
     // 如果还在运行，强制关闭
     if is_trae_running() {
+        println!("[INFO] 优雅关闭失败，正在强制关闭...");
         let output = command_no_window("taskkill")
             .args(["/F", "/IM", "Trae.exe"])
             .output()
@@ -189,10 +190,22 @@ pub fn kill_trae() -> Result<()> {
         }
     }
 
-    // 等待进程完全退出
-    std::thread::sleep(std::time::Duration::from_millis(1000));
+    // 等待进程完全退出（轮询检查，最多等待5秒）
+    let start = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(5);
+    
+    while is_trae_running() && start.elapsed() < timeout {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
 
-    println!("[INFO] Trae IDE 已关闭");
+    if is_trae_running() {
+        return Err(anyhow!("无法完全关闭 Trae IDE，请手动关闭后重试"));
+    }
+
+    // 额外等待一段时间确保资源释放
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    println!("[INFO] Trae IDE 已完全关闭");
     Ok(())
 }
 

@@ -6,7 +6,7 @@ mod account;
 mod autostart;
 mod machine;
 mod privacy;
-mod tempmail_client;
+// mod tempmail_client; // 已禁用，依赖外部 exe 文件
 // mod quick_register_simple; // 已禁用快速注册功能
 mod browser_auto_login;
 mod logger;
@@ -836,7 +836,6 @@ async fn start_browser_login(app: AppHandle, state: State<'_, AppState>) -> Resu
 
     let script = build_browser_login_script(addr.port());
     let script_init = script.clone();
-    let script_onload = script.clone();
 
     // 关闭已存在的登录窗口
     if let Some(existing) = app.get_webview_window("trae-login") {
@@ -848,15 +847,10 @@ async fn start_browser_login(app: AppHandle, state: State<'_, AppState>) -> Resu
         return Err(anyhow::anyhow!("无法关闭已存在的登录窗口，请重启应用后重试").into());
     }
 
-    let webview = WebviewWindowBuilder::new(&app, "trae-login", WebviewUrl::External("about:blank".parse().unwrap()))
+    let webview = WebviewWindowBuilder::new(&app, "trae-login", WebviewUrl::External("https://www.trae.ai/login".parse().unwrap()))
         .title("Trae 登录")
         .inner_size(1000.0, 720.0)
         .initialization_script(&script_init)
-        .on_page_load(move |window, payload| {
-            if payload.event() == PageLoadEvent::Finished {
-                let _ = window.eval(script_onload.clone());
-            }
-        })
         .build()
         .map_err(|e| anyhow::anyhow!("无法打开登录窗口: {}", e))?;
 
@@ -870,10 +864,7 @@ async fn start_browser_login(app: AppHandle, state: State<'_, AppState>) -> Resu
     });
 
     let _ = webview.clear_all_browsing_data();
-    let _ = webview.navigate(Url::parse("https://www.trae.ai/login").unwrap());
-
     let _ = webview.set_focus();
-    let _ = webview.eval(script);
 
     *browser_login = Some(BrowserLoginSession {
         receiver: token_rx,
@@ -1613,7 +1604,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_positioner::init())
         .manage(AppState {
             account_manager: Mutex::new(account_manager),
             browser_login: Mutex::new(None),
@@ -1679,11 +1669,13 @@ pub fn run() {
             }
             Ok(())
         })
-        .on_window_event(|_window, event| match event {
-            // 关闭窗口时直接退出应用
+        .on_window_event(|window, event| match event {
+            // 仅在主窗口关闭时才退出应用
             WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                std::process::exit(0);
+                if window.label() == "main" {
+                    api.prevent_close();
+                    std::process::exit(0);
+                }
             }
             _ => {}
         })

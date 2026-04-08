@@ -4,9 +4,18 @@ use std::time::Duration;
 
 // API 配置 - 编译时从环境变量读取
 // 请确保在编译前设置了这些环境变量 (例如在 .env 文件中)
-const QUICK_REGISTER_API_BASE: &str = env!("VITE_QUICK_REGISTER_API_BASE");
-const APP_ID: &str = env!("VITE_APP_ID");
-const APP_SECRET: &str = env!("VITE_APP_SECRET");
+const QUICK_REGISTER_API_BASE: &str = match option_env!("VITE_QUICK_REGISTER_API_BASE") {
+    Some(v) => v,
+    None => "https://hhxyyq.online", // 即使未配置也提供默认值以防编译失败
+};
+const APP_ID: &str = match option_env!("VITE_APP_ID") {
+    Some(v) => v,
+    None => "trae_email",
+};
+const APP_SECRET: &str = match option_env!("VITE_APP_SECRET") {
+    Some(v) => v,
+    None => "trae_email_secret_key_2026",
+};
 
 // 任务创建响应
 #[derive(Debug, Serialize, Deserialize)]

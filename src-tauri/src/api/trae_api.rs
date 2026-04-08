@@ -316,39 +316,39 @@ impl TraeApiClient {
                     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                 }
                 
-                match self.client.post(&url).headers(headers.clone()).send().await {
-                    Ok(resp) => {
-                        let status = resp.status();
-                        if status.is_success() {
-                            match resp.json::<GetUserTokenResponse>().await {
-                                Ok(data) => {
-                                    println!("[TraeApiClient] ✅ GetUserToken 成功: {}", name);
-                                    self.jwt_token = Some(data.result.token.clone());
-                                    if base != self.api_base {
-                                        self.api_base = base.to_string();
-                                    }
-                                    return Ok(data.result);
-                                }
-                                Err(e) => {
-                                    println!("[TraeApiClient] 端点 {} 解析响应失败: {}", name, e);
-                                    last_error = anyhow!("解析响应失败: {}", e);
-                                }
-                            }
-                        } else {
-                            println!("[TraeApiClient] 端点 {} 返回错误状态: {}", name, status);
-                            last_error = anyhow!("HTTP 错误: {}", status);
-                        }
-                    }
+                let response = match self.client.post(&url).headers(headers.clone()).body("{}").send().await {
+                    Ok(resp) => resp,
                     Err(e) => {
                         println!("[TraeApiClient] 端点 {} 请求失败: {}", name, e);
-                        if e.is_timeout() {
-                            last_error = anyhow!("请求超时");
-                        } else if e.is_connect() {
-                            last_error = anyhow!("连接失败");
-                        } else {
-                            last_error = anyhow!("请求错误: {}", e);
+                        last_error = anyhow!("请求错误: {}", e);
+                        continue;
+                    }
+                };
+
+                let status = response.status();
+                if status.is_success() {
+                    match response.json::<GetUserTokenResponse>().await {
+                        Ok(data) => {
+                            println!("[TraeApiClient] ✅ GetUserToken 成功: {}", name);
+                            self.jwt_token = Some(data.result.token.clone());
+                            if base != self.api_base {
+                                self.api_base = base.to_string();
+                            }
+                            return Ok(data.result);
+                        }
+                        Err(e) => {
+                            println!("[TraeApiClient] 端点 {} 解析响应失败: {}", name, e);
+                            last_error = anyhow!("解析响应失败: {}", e);
                         }
                     }
+                } else if status == reqwest::StatusCode::UNAUTHORIZED {
+                    println!("[TraeApiClient] 端点 {} 授权失败 (401)，Cookie 可能已失效", name);
+                    last_error = anyhow!("授权失败 (401)");
+                    // 如果是 401，通常重试也没用，直接跳过当前端点的重试
+                    break;
+                } else {
+                    println!("[TraeApiClient] 端点 {} 返回错误状态: {}", name, status);
+                    last_error = anyhow!("HTTP 错误: {}", status);
                 }
             }
         }

@@ -49,6 +49,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          packageManager: "npm" # Explicitly set package manager to npm
           tagName: v__VERSION__ # the action replaces this with the version from tauri.conf.json
           releaseName: "Trae账号管理 v__VERSION__"
           releaseBody: "See the assets below to download for your platform."

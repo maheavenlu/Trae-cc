@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use std::path::PathBuf;
 
 const AUTOSTART_NAME: &str = "Trae账号管理";
 
